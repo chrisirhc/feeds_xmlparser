@@ -13,6 +13,9 @@ class FeedsXMLParser extends FeedsParser {
     if (!function_exists('simplexml_load_file')) {
       throw new Exception(t('Feeds XML Parser requires SimpleXML PHP extension.'));
     }
+    if (empty($this->config['xpath'])) {
+      throw new Exception(t('Please set xpath for items in XML parser settings.'));
+    }
     $file = realpath($batch->getFilePath());
     if (!is_file($file)) {
       throw new Exception(t('File %name not found.', array('%name' => $batch->getFilePath())));
@@ -21,36 +24,39 @@ class FeedsXMLParser extends FeedsParser {
     if ($xml === FALSE) {
       throw new Exception(t('Could not parse XML file: %file', array('%file' => $batch->getFilePath())));
     }
-    if (!empty($this->config['xpath'])) {
-        $xml = $xml->xpath($this->config['xpath']);
+    $result = $xml->xpath($this->config['xpath']);
+    unset($xml);
+    if (!is_array($result)) {
+      throw new Exception(t('Xpath %xpath in XML file %file failed.', array('%xpath' => $this->config['xpath'], '%file' => $batch->getFilePath())));
     }
-    $xml = (array)$xml;
     // Convert each item to XML as SimpleXMLElement cannot be serialized
-    foreach ($xml as &$item) {
+    foreach ($result as &$item) {
       $item = $item->asXML();
     }
-    $batch->setItems($xml);
+    $batch->setItems($result);
   }
 
-  public function getSourceElement($item, $element_key) {
+  function getSourceElement($item, $element_key) {
     $xml = new SimpleXMLElement($item);
-    $xml = $xml->xpath($element_key);
-
-    if (is_array($xml)) return (string) $xml[0];
-    // Return the first scalar value found after applying xpath
-    /* I may not know why this is being used
-    if (is_array($xml)) {
-      foreach ((array)$xml[0] as $value) {
-        if (is_scalar($value)) return $value;
+    $result = $xml->xpath($element_key);
+    if (is_array($result)) {
+      $values = array();
+      foreach ($result as $obj) {
+        $values[] = (string)$obj;
+      }
+      if (count($values) > 1) {
+        return $values;
+      }
+      elseif (count($values) == 1) {
+        return $values[0];
       }
     }
-    */
     return '';
   }
 
   public function configDefaults() {
     return array(
-      'xpath' => '',
+      'xpath' => 'item',
     );
   }
 
