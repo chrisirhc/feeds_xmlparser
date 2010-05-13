@@ -24,6 +24,17 @@ class FeedsXMLParser extends FeedsParser {
     if ($xml === FALSE) {
       throw new Exception(t('Could not parse XML file: %file', array('%file' => $batch->getFilePath())));
     }
+
+    if (version_compare(PHP_VERSION, '5.2.0', '>=')) {
+      //Fetch all namespaces
+      $namespaces = $xml->getNamespaces(true);
+
+      //Register them with their prefixes
+      foreach ($namespaces as $prefix => $ns) {
+        $xml->registerXPathNamespace($prefix, $ns);
+      }
+    }
+
     $result = $xml->xpath($this->config['xpath']);
     unset($xml);
     if (!is_array($result)) {
